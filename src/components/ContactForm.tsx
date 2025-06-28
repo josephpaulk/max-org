@@ -82,24 +82,46 @@ const ContactForm: React.FC = () => {
     setSubmitMessage('');
 
     try {
-      // Create FormData object for CF7
+      // Try Contact Form 7 REST API first
       const formDataToSend = new FormData();
       formDataToSend.append('your-name', formData.name);
       formDataToSend.append('your-email', formData.email);
       formDataToSend.append('your-subject', formData.subject);
       formDataToSend.append('your-message', formData.message);
 
-      const response = await fetch('https://give.maxsys.org/wp-json/contact-form-7/v1/contact-forms/c971a18/feedback', {
+      let response = await fetch('https://give.maxsys.org/wp-json/contact-form-7/v1/contact-forms/2927/feedback', {
         method: 'POST',
         body: formDataToSend,
+        mode: 'cors',
         headers: {
           // Don't set Content-Type header when using FormData - browser will set it automatically with boundary
         }
       });
 
-      const result = await response.json();
+      let result;
+      
+      // If CF7 API fails, try custom endpoint
+      if (!response.ok) {
+        console.log('CF7 API failed, trying custom endpoint...');
+        response = await fetch('https://give.maxsys.org/wp-json/maxsys/v1/contact', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            subject: formData.subject,
+            message: formData.message
+          }),
+          mode: 'cors'
+        });
+      }
 
-      if (result.status === 'mail_sent') {
+      result = await response.json();
+
+      // Handle CF7 response format
+      if (result.status === 'mail_sent' || result.status === 'success') {
         setSubmitStatus('success');
         setSubmitMessage('Thank you for your message! We\'ll get back to you within 24 hours.');
         
@@ -129,7 +151,7 @@ const ContactForm: React.FC = () => {
     } catch (error) {
       console.error('Form submission error:', error);
       setSubmitStatus('error');
-      setSubmitMessage('There was a network error. Please check your connection and try again.');
+      setSubmitMessage('There was a network error. Please check your connection and try again, or email us directly at info@maxsys.org.');
     } finally {
       setIsSubmitting(false);
     }
@@ -280,6 +302,14 @@ const ContactForm: React.FC = () => {
             'Send Message'
           )}
         </button>
+
+        {/* Fallback contact info */}
+        <div className="text-center text-sm text-gray-500 mt-4">
+          Having trouble? Email us directly at{' '}
+          <a href="mailto:info@maxsys.org" className="text-primary-600 hover:text-primary-700 font-medium">
+            info@maxsys.org
+          </a>
+        </div>
       </form>
     </div>
   );
